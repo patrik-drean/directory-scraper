@@ -1,55 +1,59 @@
-import requests
+import time, re, csv, glob, pprint, time, getpass, json
 from bs4 import BeautifulSoup
 from selenium import webdriver
-from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support.ui import WebDriverWait, Select
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException, TimeoutException
 
 login_url = "https://ident.churchofjesuschrist.org/sso/UI/Login"
 directory_url = "https://directory.churchofjesuschrist.org/2029413"
-payload = {
-    'IDToken1': 'USERNAME',
-    'IDToken2': 'PASSWORD',
-    'IDButton': 'Log In',
-    'goto': '',
-    'gotoOnFail': '',
-    'SunQueryParamsString': 'c2VydmljZT1jcmVkZW50aWFscyZyZWFsbT0vY2h1cmNo',
-    'encoded': 'true',
-    'gx_charset': 'UTF-8'
-  }
+household_class_name = "sc-gZMcBi"
+
+json_file = open('../secrets/lds-creds.json')
+data = json.load(json_file)
 
 def main():
   driver = configureDriver()
-  session = requests.Session() 
 
-  authenicated_cookies = authenticateUser(driver, session)
-
-  # driver.implicitly_wait(10) 
-  driver.get(directory_url)
-  [driver.add_cookie(c) for c in authenicated_cookies]
-  input()
-  driver.get(directory_url)
-  text_file = open("Output.html", "w")
-  text_file.write(driver.page_source)
-  text_file.close()
-  # print(driver.page_source)
-
-  # input()
+  authenticateUser(driver)
+  households = getHouseholds(driver)
 
 def configureDriver():
   options = webdriver.ChromeOptions()
   options.add_argument('--ignore-certificate-errors')
   options.add_argument('--incognito')
-  # options.add_argument('--headless')
-  driver = webdriver.Chrome("/Users/patrikdrean/dev/directory-scraper/chromedriver", chrome_options=options)
+  options.add_argument('--headless')
+  driver = webdriver.Chrome("/Users/patrikdrean/dev/directory-scraper/chromedriver", options=options)
   return driver
 
-def authenticateUser(driver, session):
-  response = session.get(login_url)
-  session.post(login_url, data=payload)
-  response = session.get(directory_url)
+def authenticateUser(driver):
+  driver.get(login_url)
 
-  authenicated_cookies = [{'name':name, 'value':value} for name, value in session.cookies.get_dict().items()]
-  return authenicated_cookies
+  ## Uncoment for manual entering ##
+  # username = input('Enter username: ')
+  # password = getpass.getpass('Enter password: ')
+
+  username = data['username']
+  password = data['password']
+
+  WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, 'IDToken1')))  
+  username_input = driver.find_element_by_name("IDToken1")
+  password_input = driver.find_element_by_name("IDToken2")
+
+  username_input.clear()
+  username_input.send_keys(username)
+  password_input.clear()
+  password_input.send_keys(password)
+
+  username_input.submit()
+
+def getHouseholds(driver):
+  driver.get(directory_url)
+  WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, household_class_name)))
+  driver.find_elements_by_class_name(household_class_name)
+  
+  households = list(map(lambda element: element.text, driver.find_elements_by_class_name(household_class_name)))
 
 if __name__ == "__main__":
     main()
-
