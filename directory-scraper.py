@@ -1,41 +1,38 @@
-import time, re, csv, glob, pprint, time, getpass, json
-from bs4 import BeautifulSoup
+import getpass, json
 from selenium import webdriver
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException, TimeoutException
 
-login_url = "https://ident.churchofjesuschrist.org/sso/UI/Login"
-directory_url = "https://directory.churchofjesuschrist.org/2029413"
-household_class_name = "sc-gZMcBi"
-creds_file_path = "../secrets/lds-creds.json"
+LOGIN_URL = "https://ident.churchofjesuschrist.org/sso/UI/Login"
+DIRECTORY_URL = "https://directory.churchofjesuschrist.org/2029413"
+HOUSEHOLD_CSS_CLASS_NAME = "sc-gZMcBi"
+CREDS_FILE_PATH = "../secrets/lds-creds.json"
 
-json_file = open(creds_file_path)
-creds = json.load(json_file)
-
-def main():
+def getCurrentHouseholds():
   driver = configureDriver()
-
   authenticateUser(driver)
   households = getHouseholds(driver)
   outputJson(households)
+
+  return households
 
 def configureDriver():
   options = webdriver.ChromeOptions()
   options.add_argument('--ignore-certificate-errors')
   options.add_argument('--incognito')
-  # options.add_argument('--headless')
+  options.add_argument('--headless')
   driver = webdriver.Chrome("/Users/patrikdrean/dev/directory-scraper/chromedriver", options=options)
   return driver
 
 def authenticateUser(driver):
-  driver.get(login_url)
+  driver.get(LOGIN_URL)
 
   ## Uncoment for manual entering ##
   # username = input('Enter username: ')
   # password = getpass.getpass('Enter password: ')
 
+  creds = json.load(open(CREDS_FILE_PATH))
   username = creds['username']
   password = creds['password']
 
@@ -51,11 +48,11 @@ def authenticateUser(driver):
   username_input.submit()
 
 def getHouseholds(driver):
-  driver.get(directory_url)
-  WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.CLASS_NAME, household_class_name)))
-  driver.find_elements_by_class_name(household_class_name)
+  driver.get(DIRECTORY_URL)
+  WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.CLASS_NAME, HOUSEHOLD_CSS_CLASS_NAME)))
+  driver.find_elements_by_class_name(HOUSEHOLD_CSS_CLASS_NAME)
   
-  households = list(map(lambda element: element.text, driver.find_elements_by_class_name(household_class_name)))
+  households = list(map(lambda element: element.text, driver.find_elements_by_class_name(HOUSEHOLD_CSS_CLASS_NAME)))
   return households
 
 def outputJson(households):
@@ -67,10 +64,6 @@ def outputJson(households):
   json_string = json_string[:-1]
   json_string += ']'
 
-  f = open("households.json", "w")
+  f = open("current-households.json", "w")
   f.write(json_string)
   f.close()
-
-
-if __name__ == "__main__":
-    main()
