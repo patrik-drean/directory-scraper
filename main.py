@@ -23,7 +23,7 @@ def main():
     UPDATED_GOOGLE_RECORDS.append([new_household, '-','-'])
 
   headers = [google_records[0]]
-  headers[0][len(headers)-1]
+  headers[0][len(headers[0])-1] = TODAY
 
   google_output = headers + sorted(UPDATED_GOOGLE_RECORDS, key=lambda x: x[0])
 
